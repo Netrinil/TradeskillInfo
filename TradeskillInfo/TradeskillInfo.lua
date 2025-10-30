@@ -205,6 +205,8 @@ function TradeskillInfo:InitPlayer()
 end
 
 function TradeskillInfo:OnEnable()
+	self:BuildWhereUsed();
+
 	self:PopulateProfessionNames()
 	self:InitPlayer();
 	self:HookTradeSkillUI();
@@ -244,6 +246,7 @@ function TradeskillInfo:OnAddonLoaded(event, addon)
 		   addon == "AdvancedTradeSkillWindow" then
 		self:HookTradeSkillUI();
 	end
+	self:BuildWhereUsed();
 end
 
 function TradeskillInfo:OnTradeShow()
@@ -771,19 +774,19 @@ function TradeskillInfo:GetCombineComponents(id, getVendorPrice, getAuctioneerPr
 	for s in string.gmatch(compstring,"%S+") do
 		-- initialize c
 		local c = {};
-		-- gets the component id and number, looking for 10998 10940:2
-		_,_,c.id,c.num = string.find(s,"(%d+):(%d+)");
+		-- gets the component id and number, i.e. looking for 10998 10940:2
+		_,_,c.id,c.amount = string.find(s,"(%d+):(%d+)");
 		c.id = tonumber(c.id) or tonumber(s);
-		c.num = tonumber(c.num) or 1;
+		c.amount = tonumber(c.amount) or 1;
 		if CanAttuneItemHelper and CanAttuneItemHelper(id) > 0 then
-			c.numAA = tonumber(c.num) or 1;
+			c.characterAmount = tonumber(c.amount) or 1;
 		else
-			c.numAA = 0
+			c.characterAmount = 0
 		end
 		if IsAttunableBySomeone and IsAttunableBySomeone(id) then
-			c.numA = tonumber(c.num) or 1;
+			c.accountAmount = tonumber(c.amount) or 1;
 		else
-			c.numA = 0
+			c.accountAmount = 0
 		end
 		c.name,c.cost,c.source,c.aucMvCost,c.aucMvSeen = self:GetComponent(c.id, getVendorPrice, getAuctioneerPrice);
 		c.link, c.quality, c.itemString, c.texture = getItemLink(c.id);
@@ -902,7 +905,7 @@ function TradeskillInfo:GetCombineCost(id)
 	end
 	local cost = 0;
 	for _,c in ipairs(components) do
-		cost = cost + c.cost * c.num
+		cost = cost + c.cost * c.amount
 	end
 	components = nil;
 	return value, cost, value-cost;
@@ -925,7 +928,7 @@ function TradeskillInfo:GetCombineAuctioneerCost(id)
 	end
 	local cost = 0;
 	for _,c in ipairs(components) do
-		cost = cost + (c.aucMvCost or 0) * c.num
+		cost = cost + (c.aucMvCost or 0) * c.amount
 	end
 	components = nil;
 
@@ -937,7 +940,7 @@ function TradeskillInfo:PrintCombine(id)
 	local combine = self:GetCombine(id)
 	local text = string.format("%s : %s(%d) %s ", combine.link or combine.name, self.vars.tradeskills[combine.skill], combine.level, self.vars.specializations[combine.spec] or "" );
 	for i,c in ipairs(combine.components) do
-		text = text .. string.format("x%d*%s ", c.num, c.link or c.name);
+		text = text .. string.format("x%d*%s ", c.amount, c.link or c.name);
 	end
 	combine = nil;
 	self:Print(text);
@@ -1072,24 +1075,27 @@ function TradeskillInfo:GetUsedIn(id, tooltip)
 	local overview
 	local Ltext, Rtext;
 	local c = self.db.profile.ColorUsedIn;
-	-- will separate "D1|1|1 D1|1|1 D|1|1|1" into 3 separate "D1|1|1"
+	-- will separate "D1,1,1 D1,1,1 D,1,1,1" into 3 separate "D1,1,1"
 	for s in string.gmatch(self.vars.whereUsedOverview[id],"%S+") do
-		-- ignore start and end integers and captures "D1|1|1" into skill, num, numA, and numAA
-		local _,_,skill,num,numA,numAA = string.find(s, "(%u+)(%d+)|(%d+)|(%d+)")
-		num = num or 0
-		numA = numA or 0
-		numAA = numAA or 0
+		-- ignore start and end integers and captures "D1,1,1" into skill, num, numA, and numAA
+		local _,_,skill,useCount,accountUseCount,characterUseCount,amount,accountAmount,characterAmount = string.find(s, "(%u+)(%d+),(%d+),(%d+),(%d+),(%d+),(%d+)")
+		useCount = useCount or 0
+		accountUseCount = accountUseCount or 0
+		characterUseCount = characterUseCount or 0
+		amount = amount or 0
+		accountAmount = accountAmount or 0
+		characterAmount = characterAmount or 0
 		local skillname = self.vars.tradeskills[skill];
 		if skillname then
-			Rtext = skillname.." ("..tostring(num)..")";
+			Rtext = skillname.." ("..tostring(useCount)..")";
 			if TradeskillInfo:ShowingTooltipUsedInAmountAccount() then
 				if TradeskillInfo:ShowingTooltipUsedInAmountCharacter() then
-					Rtext = skillname.." ("..tostring(num)..", "..numAA..")";
+					Rtext = skillname.." ("..tostring(characterUseCount)..", "..characterAmount..")";
 				else
-					Rtext = skillname.." ("..tostring(num)..", "..numA..")";
+					Rtext = skillname.." ("..tostring(accountUseCount)..", "..accountAmount..")";
 				end
 			else
-				Rtext = skillname.." ("..tostring(num)..")";
+				Rtext = skillname.." ("..tostring(useCount)..")";
 			end
 			if not overview then
 				overview = Rtext;
@@ -1100,7 +1106,7 @@ function TradeskillInfo:GetUsedIn(id, tooltip)
 			end
 			if tooltip then
 				tooltip:AddDoubleLine(Ltext, Rtext, c.r, c.g, c.b, c.r, c.g, c.b/1.2);
---				tooltip:Show();
+				--				tooltip:Show();
 			end
 		else
 			self:Print(L["Found unknown skill"],s.." "..tostring(skill));
@@ -1112,25 +1118,27 @@ end
 function TradeskillInfo:BuildWhereUsed()
 	self.vars.whereUsed = {};
 	-- Initialize WhereUsed
-	-- Iterate through combines table and save index to i
+	-- Iterate through combines table and save the key to i
 	for i,_ in pairs(self.vars.combines) do
 		-- Gets the profession, spec, and level of a pattern
 		local skill,spec,level = self:GetCombineSkill(i);
 		-- Gets the combine components for i
 		local components = self:GetCombineComponents(i);
-		-- ignore the index and save the component table to c
-		for _,c in ipairs(components) do
-			-- if the index of component id is invalid in the whereUsed array (could be missing, could be nil, etc)
-			if not self.vars.whereUsed[c.id] then
-				-- set the entry to the skill followed by the combine index, the count, the account attunable count, the character attunable count
-				self.vars.whereUsed[c.id]=skill..tostring(i).."|"..c.num.."|"..c.numA.."|"..c.numAA;
+		-- ignore the key and save the component table to c
+		for _,comp in ipairs(components) do
+			-- build a string with the profession abbreviation, combine key, the count, the account attunable count, the character attunable count
+			local componentString = skill..tostring(i)..","..comp.amount..","..comp.accountAmount..","..comp.characterAmount
+			-- if the key of component id is invalid in the whereUsed array (could be missing, could be nil, etc)
+			if not self.vars.whereUsed[comp.id] then
+				-- set the entry to the skill followed by the component string
+				self.vars.whereUsed[comp.id]=componentString;
 			-- if the entry already exists
 			else
 				-- concatenate to the end instead
-				self.vars.whereUsed[c.id]=self.vars.whereUsed[c.id].." "..skill..tostring(i).."|"..c.num.."|"..c.numA.."|"..c.numAA;
+				self.vars.whereUsed[comp.id]=self.vars.whereUsed[comp.id].." "..componentString;
 			end
 		end
-		-- clear components before moving to the next index
+		-- clear components before moving to the next key
 		components = nil
 	end
 
@@ -1139,12 +1147,13 @@ function TradeskillInfo:BuildWhereUsed()
 		local skills = self:GetItemUseCount(i);
 		local overview
 		for s,n in pairs(skills) do
-		if not overview then
-			overview = s..tostring(n[1]).."|"..tostring(n[2]).."|"..tostring(n[3]).."|"..tostring(n[4]);
-		else
-			overview = overview.." "..s..tostring(n[1]).."|"..tostring(n[2]).."|"..tostring(n[3]).."|"..tostring(n[4]);
+			local itemUseString = s..tostring(n[1])..","..tostring(n[2])..","..tostring(n[3])..","..tostring(n[4])..","..tostring(n[5])..","..tostring(n[6])
+			if not overview then
+				overview = itemUseString;
+			else
+				overview = overview.." "..itemUseString;
+			end
 		end
-	  end
 		self.vars.whereUsedOverview[i] = overview;
 	end
 end
@@ -1167,24 +1176,26 @@ function TradeskillInfo:GetItemUseCount(item,deep)
 	local skills = {};
 	if self.vars.whereUsed[item] and deep < 5 then
 		for s in string.gmatch(self.vars.whereUsed[item],"%S+") do
-			local _,_,skill,item2,count,countA,countAA = string.find(s, "(%u)([-]?%d+)|([-]?%d+)|([-]?%d+)|([-]?%d+)");
-			if skill then
-				local i = 0
-				if TradeskillInfo:ShowingTooltipUsedInAmountAccount() then
-					if TradeskillInfo:ShowingTooltipUsedInAmountCharacter() then
-						if CanAttuneItemHelper and CanAttuneItemHelper(item) > 0 then
-							i = 1
-						end
-					else
-						if IsAttunableBySomeone and IsAttunableBySomeone(item) then
-							i = 1
+			local _,_,skill,item2,amount,accountAmount,characterAmount = string.find(s, "(%u)([-]?%d+),([-]?%d+),([-]?%d+),([-]?%d+)");
+			if skill and item2 then
+				local useCount = 1
+				local accountUseCount = 0
+				local characterUseCount = 0
+				if IsAttunableBySomeone and IsAttunableBySomeone(item2) then
+					accountUseCount = 1
+					if CanAttuneItemHelper and CanAttuneItemHelper(item2) > 0 then
+						characterUseCount = 1
+					end
+				end
+				AddTable(skills,{[skill]={useCount,accountUseCount,characterUseCount,amount,accountAmount,characterAmount}});
+				local skills2 = self:GetItemUseCount(tonumber(item2),deep+1);
+				for key,value in pairs(skills2) do
+					for key2,value2 in pairs(value) do
+						if key2 > 3 then
+							skills2[key][key2] = value2 * amount
 						end
 					end
-				else
-					i = 1
 				end
-				AddTable(skills,{[skill]={i,count,countA,countAA}});
-				local skills2 = self:GetItemUseCount(tonumber(item2),deep+1);
 				AddTable(skills,skills2);
 			end
 		end
@@ -1782,7 +1793,7 @@ function TradeskillInfo:AddReagentsToTooltip(tooltip, id)
 			for _,c in ipairs(components) do
 				if not c.quality then c.quality = 1 end
 				local _, _, _, hexColor = GetItemQualityColor(c.quality);
-				Rtext = c.num.."*"..hexColor..c.name.."|r";
+				Rtext = c.amount.."*"..hexColor..c.name.."|r";
 				if not text then
 					Ltext = L["Reagents"];
 					text = Rtext;
