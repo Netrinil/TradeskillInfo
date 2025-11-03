@@ -92,12 +92,14 @@ local tooltipOptions = {
 					desc = L["Show total count used for all attunable recipes"],
 					type = "toggle",
 					arg = "TooltipUsedInAmountAccount",
+					disabled = function() return not TradeskillInfo.db.profile["TooltipUsedIn"] end,
 				},
 				usedinAmountCharacter = {
 					name = L["Used in character attunable amount"],
 					desc = L["Show total count used for your attunable recipes"],
 					type = "toggle",
 					arg = "TooltipUsedInAmountCharacter",
+					disabled = function() return not TradeskillInfo.db.profile["TooltipUsedInAmountAccount"] end,
 				},
 				usableby = {
 					name = L["Usable by"],
