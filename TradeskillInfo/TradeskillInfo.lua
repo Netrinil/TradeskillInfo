@@ -764,10 +764,18 @@ function TradeskillInfo:GetCombineItem(id)
 	return item
 end
 
+local forgechances = {
+	["U"] = 1,
+	["T"] = 0.05,
+	["W"] = 0.007,
+	["L"] = 0.001,
+}
+
 function TradeskillInfo:GetCombineComponents(id, getVendorPrice, getAuctioneerPrice)
 	-- if the combine doesn't exist, return
 	if not self:CombineExists(id) then return end
 	-- initialize components
+	local forgemultiplier = 1 / (math.min(1, forgechances[self.db.profile.TooltipAttunedFilter] * (1 + GetCustomGameData(29, 1494) / 100)))
 	local components = {};
 	-- looks for the (Profession)#/#/#/# substring, such as D105/130/150/170
 	local _, _, compstring = string.find(self.vars.combines[id],"-?%d*|?[^|]+|([^|]+)");
@@ -776,18 +784,19 @@ function TradeskillInfo:GetCombineComponents(id, getVendorPrice, getAuctioneerPr
 		-- initialize c
 		local c = {};
 		-- gets the component id and number, i.e. looking for 10998 10940:2
-		_,_,c.id,c.amount = string.find(s,"(%d+):(%d+)");
+		_,_,c.id,c.num = string.find(s,"(%d+):(%d+)");
 		c.id = tonumber(c.id) or tonumber(s);
-		c.amount = tonumber(c.amount) or 1;
-		if CanAttuneItemHelper and CanAttuneItemHelper(id) > 0 then
-			c.characterAmount = tonumber(c.amount) or 1;
-		else
-			c.characterAmount = 0
-		end
+		c.num = tonumber(c.num) or 1;
 		if IsAttunableBySomeone and IsAttunableBySomeone(id) then
-			c.accountAmount = tonumber(c.amount) or 1;
+			c.num = c.num * forgemultiplier
+			c.accountAmount = tonumber(c.num) or forgemultiplier;
 		else
 			c.accountAmount = 0
+		end
+		if CanAttuneItemHelper and CanAttuneItemHelper(id) > 0 then
+			c.characterAmount = tonumber(c.num) or forgemultiplier;
+		else
+			c.characterAmount = 0
 		end
 		c.name,c.cost,c.source,c.aucMvCost,c.aucMvSeen = self:GetComponent(c.id, getVendorPrice, getAuctioneerPrice);
 		c.link, c.quality, c.itemString, c.texture = getItemLink(c.id);
@@ -906,7 +915,7 @@ function TradeskillInfo:GetCombineCost(id)
 	end
 	local cost = 0;
 	for _,c in ipairs(components) do
-		cost = cost + c.cost * c.amount
+		cost = cost + c.cost * c.num
 	end
 	components = nil;
 	return value, cost, value-cost;
@@ -929,7 +938,7 @@ function TradeskillInfo:GetCombineAuctioneerCost(id)
 	end
 	local cost = 0;
 	for _,c in ipairs(components) do
-		cost = cost + (c.aucMvCost or 0) * c.amount
+		cost = cost + (c.aucMvCost or 0) * c.num
 	end
 	components = nil;
 
@@ -941,7 +950,7 @@ function TradeskillInfo:PrintCombine(id)
 	local combine = self:GetCombine(id)
 	local text = string.format("%s : %s(%d) %s ", combine.link or combine.name, self.vars.tradeskills[combine.skill], combine.level, self.vars.specializations[combine.spec] or "" );
 	for i,c in ipairs(combine.components) do
-		text = text .. string.format("x%d*%s ", c.amount, c.link or c.name);
+		text = text .. string.format("x%d*%s ", c.num, c.link or c.name);
 	end
 	combine = nil;
 	self:Print(text);
@@ -1128,7 +1137,7 @@ function TradeskillInfo:BuildWhereUsed()
 		-- ignore the key and save the component table to c
 		for _,comp in ipairs(components) do
 			-- build a string with the profession abbreviation, combine key, the count, the account attunable count, the character attunable count
-			local componentString = skill..tostring(i)..","..comp.amount..","..comp.accountAmount..","..comp.characterAmount
+			local componentString = skill..tostring(i)..","..comp.num..","..comp.accountAmount..","..comp.characterAmount
 			-- if the key of component id is invalid in the whereUsed array (could be missing, could be nil, etc)
 			if not self.vars.whereUsed[comp.id] then
 				-- set the entry to the skill followed by the component string
@@ -1137,11 +1146,6 @@ function TradeskillInfo:BuildWhereUsed()
 			else
 				-- concatenate to the end instead
 				self.vars.whereUsed[comp.id]=self.vars.whereUsed[comp.id].." "..componentString;
-			end
-			if comp.id == 2841 and skill == "J" then
-				print(componentString)
-				--print(self.vars.whereUsed[comp.id])
-				--print(overview)
 			end
 		end
 		-- clear components before moving to the next key
@@ -1177,17 +1181,9 @@ local function AddTable(tbl1,tbl2)
 	end
 end
 
-local forgechances = {
-	["U"] = 1,
-	["T"] = 0.05,
-	["W"] = 0.007,
-	["L"] = 0.001,
-}
-
 function TradeskillInfo:GetItemUseCount(item,deep)
 	if not deep then deep = 1 end
 	local skills = {};
-	local forgemultiplier = 1
 	if self.vars.whereUsed[item] and deep < 5 then
 		for s in string.gmatch(self.vars.whereUsed[item],"%S+") do
 			local _,_,skill,item2,amount,accountAmount,characterAmount = string.find(s, "(%u)([-]?%d+),([-]?%d+),([-]?%d+),([-]?%d+)");
@@ -1200,7 +1196,6 @@ function TradeskillInfo:GetItemUseCount(item,deep)
 					if CanAttuneItemHelper and CanAttuneItemHelper(item2) > 0 then
 						characterUseCount = 1
 					end
-					forgemultiplier = 1 / (math.min(1, forgechances[self.db.profile.TooltipAttunedFilter] * (1 + GetCustomGameData(29, 1494) / 100)))
 				end
 				AddTable(skills,{[skill]={useCount,accountUseCount,characterUseCount,amount,accountAmount,characterAmount}});
 				local skills2 = self:GetItemUseCount(tonumber(item2),deep+1);
@@ -1808,7 +1803,7 @@ function TradeskillInfo:AddReagentsToTooltip(tooltip, id)
 			for _,c in ipairs(components) do
 				if not c.quality then c.quality = 1 end
 				local _, _, _, hexColor = GetItemQualityColor(c.quality);
-				Rtext = c.amount.."*"..hexColor..c.name.."|r";
+				Rtext = c.num.."*"..hexColor..c.name.."|r";
 				if not text then
 					Ltext = L["Reagents"];
 					text = Rtext;
