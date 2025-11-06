@@ -119,7 +119,7 @@ function TradeskillInfo:OnInitialize()
 			TooltipUsedIn = true,
 			TooltipUsedInAmountAccount = true,
 			TooltipUsedInAmountCharacter = true,
-			TooltipAttunedFilter = "U",
+			TooltipForgeMultiplier = "U",
 			TooltipUsableBy = true,
 			TooltipColorUsableBy = true,
 			TooltipKnownBy = {R=true,A=true,B=true,D=true,E=true,J=true,L=true,T=true,W=false,X=false,Z=true,Y=true,I=true},
@@ -771,11 +771,18 @@ local forgechances = {
 	["L"] = 0.001,
 }
 
+local attuneForges = {
+	["U"] = 0,
+	["T"] = 1,
+	["W"] = 2,
+	["L"] = 3,
+}
+
 function TradeskillInfo:GetCombineComponents(id, getVendorPrice, getAuctioneerPrice)
 	-- if the combine doesn't exist, return
 	if not self:CombineExists(id) then return end
 	-- initialize components
-	local forgemultiplier = 1 / (math.min(1, forgechances[self.db.profile.TooltipAttunedFilter] * (1 + GetCustomGameData(29, 1494) / 100)))
+	local forgemultiplier = math.ceil(1 / (math.min(1, forgechances[self.db.profile.TooltipForgeMultiplier] * (1 + GetCustomGameData(29, 1494) / 100))))
 	local components = {};
 	-- looks for the (Profession)#/#/#/# substring, such as D105/130/150/170
 	local _, _, compstring = string.find(self.vars.combines[id],"-?%d*|?[^|]+|([^|]+)");
@@ -788,6 +795,9 @@ function TradeskillInfo:GetCombineComponents(id, getVendorPrice, getAuctioneerPr
 		c.id = tonumber(c.id) or tonumber(s);
 		c.num = tonumber(c.num) or 1;
 		if IsAttunableBySomeone and IsAttunableBySomeone(id) then
+			if TradeskillInfo:ShowingTooltipUsedInFilterAttuned() and GetItemAttuneForge and GetItemAttuneForge(id) >= attuneForges[self.db.profile.TooltipForgeMultiplier] then
+				forgemultiplier = 0
+			end
 			c.num = c.num * forgemultiplier
 			c.accountAmount = tonumber(c.num) or forgemultiplier;
 		else
@@ -2042,8 +2052,12 @@ function TradeskillInfo:ShowingTooltipUsedInAmountCharacter()
 	return self.db.profile.TooltipUsedInAmountCharacter;
 end
 
-function TradeskillInfo:ShowingTooltipAttunedFilter(level)
-	return level and self.db.profile.TooltipAttunedFilter[level];
+function TradeskillInfo:ShowingTooltipUsedInFilterAttuned()
+	return self.db.profile.TooltipUsedInFilterAttuned;
+end
+
+function TradeskillInfo:ShowingTooltipForgeMultiplier(level)
+	return level and self.db.profile.TooltipForgeMultiplier[level];
 end
 
 function TradeskillInfo:ShowingTooltipSource()

@@ -57,7 +57,7 @@ local knownSelect = {
 	R = L["Recipes"],
 }
 
-local attunedFilterSelect = {
+local forgeMultiplierSelect = {
 	U = L["Unforged"],
 	T = L["Titanforged"],
 	W = L["Warforged"],
@@ -111,16 +111,24 @@ local tooltipOptions = {
 					arg = "TooltipUsedInAmountCharacter",
 					disabled = function() return not TradeskillInfo.db.profile["TooltipUsedInAmountAccount"] end,
 				},
-				attunedFilter = {
-					name = L["Attuned Filter"],
-					desc = L["Set the forge level to calculate remaining attunables"],
+				usedinFilterAttuned = {
+					name = L["Used in filter attuned"],
+					desc = L["Filter out attuned recipes from material totals. REQUIRES RELOAD TO UPDATE"],
+					type = "toggle",
+					order = 703,
+					arg = "TooltipUsedInFilterAttuned",
+					disabled = function() return not TradeskillInfo.db.profile["TooltipUsedInAmountAccount"] end,
+				},
+				forgeMultiplier = {
+					name = L["Forge Multiplier"],
+					desc = L["Set the forge level to calculate remaining attunables. REQUIRES RELOAD TO UPDATE"],
 					type = "select",
 					control = "Dropdown",
-					values = attunedFilterSelect,
-					order = 703,
+					values = forgeMultiplierSelect,
+					order = 704,
 					get = getSelect,
 					set = setSelect,
-					arg = "TooltipAttunedFilter",
+					arg = "TooltipForgeMultiplier",
 				},
 				usableby = {
 					name = L["Usable by"],
