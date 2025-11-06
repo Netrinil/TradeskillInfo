@@ -119,6 +119,7 @@ function TradeskillInfo:OnInitialize()
 			TooltipUsedIn = true,
 			TooltipUsedInAmountAccount = true,
 			TooltipUsedInAmountCharacter = true,
+			TooltipAttunedFilter = "U",
 			TooltipUsableBy = true,
 			TooltipColorUsableBy = true,
 			TooltipKnownBy = {R=true,A=true,B=true,D=true,E=true,J=true,L=true,T=true,W=false,X=false,Z=true,Y=true,I=true},
@@ -1137,6 +1138,11 @@ function TradeskillInfo:BuildWhereUsed()
 				-- concatenate to the end instead
 				self.vars.whereUsed[comp.id]=self.vars.whereUsed[comp.id].." "..componentString;
 			end
+			if comp.id == 2841 and skill == "J" then
+				print(componentString)
+				--print(self.vars.whereUsed[comp.id])
+				--print(overview)
+			end
 		end
 		-- clear components before moving to the next key
 		components = nil
@@ -1171,9 +1177,17 @@ local function AddTable(tbl1,tbl2)
 	end
 end
 
+local forgechances = {
+	["U"] = 1,
+	["T"] = 0.05,
+	["W"] = 0.007,
+	["L"] = 0.001,
+}
+
 function TradeskillInfo:GetItemUseCount(item,deep)
 	if not deep then deep = 1 end
 	local skills = {};
+	local forgemultiplier = 1
 	if self.vars.whereUsed[item] and deep < 5 then
 		for s in string.gmatch(self.vars.whereUsed[item],"%S+") do
 			local _,_,skill,item2,amount,accountAmount,characterAmount = string.find(s, "(%u)([-]?%d+),([-]?%d+),([-]?%d+),([-]?%d+)");
@@ -1186,6 +1200,7 @@ function TradeskillInfo:GetItemUseCount(item,deep)
 					if CanAttuneItemHelper and CanAttuneItemHelper(item2) > 0 then
 						characterUseCount = 1
 					end
+					forgemultiplier = 1 / (math.min(1, forgechances[self.db.profile.TooltipAttunedFilter] * (1 + GetCustomGameData(29, 1494) / 100)))
 				end
 				AddTable(skills,{[skill]={useCount,accountUseCount,characterUseCount,amount,accountAmount,characterAmount}});
 				local skills2 = self:GetItemUseCount(tonumber(item2),deep+1);
@@ -2030,6 +2045,10 @@ end
 
 function TradeskillInfo:ShowingTooltipUsedInAmountCharacter()
 	return self.db.profile.TooltipUsedInAmountCharacter;
+end
+
+function TradeskillInfo:ShowingTooltipAttunedFilter(level)
+	return level and self.db.profile.TooltipAttunedFilter[level];
 end
 
 function TradeskillInfo:ShowingTooltipSource()

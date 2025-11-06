@@ -57,6 +57,13 @@ local knownSelect = {
 	R = L["Recipes"],
 }
 
+local attunedFilterSelect = {
+	U = L["Unforged"],
+	T = L["Titanforged"],
+	W = L["Warforged"],
+	L = L["Lightforged"],
+}
+
 for x, y in pairs(TradeskillInfo.vars.tradeskills) do
 	knownSelect[x] = y
 end
@@ -85,12 +92,14 @@ local tooltipOptions = {
 					name = L["Used in"],
 					desc = L["Show what tradeskill an item is used in and how many recipes/sub-recipes for each"],
 					type = "toggle",
+					order = 700,
 					arg = "TooltipUsedIn",
 				},
 				usedinAmountAccount = {
 					name = L["Used in account attunable amount"],
 					desc = L["Show total count used for all attunable recipes"],
 					type = "toggle",
+					order = 701,
 					arg = "TooltipUsedInAmountAccount",
 					disabled = function() return not TradeskillInfo.db.profile["TooltipUsedIn"] end,
 				},
@@ -98,8 +107,20 @@ local tooltipOptions = {
 					name = L["Used in character attunable amount"],
 					desc = L["Show total count used for your attunable recipes"],
 					type = "toggle",
+					order = 702,
 					arg = "TooltipUsedInAmountCharacter",
 					disabled = function() return not TradeskillInfo.db.profile["TooltipUsedInAmountAccount"] end,
+				},
+				attunedFilter = {
+					name = L["Attuned Filter"],
+					desc = L["Set the forge level to calculate remaining attunables"],
+					type = "select",
+					control = "Dropdown",
+					values = attunedFilterSelect,
+					order = 703,
+					get = getSelect,
+					set = setSelect,
+					arg = "TooltipAttunedFilter",
 				},
 				usableby = {
 					name = L["Usable by"],
