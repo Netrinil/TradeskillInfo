@@ -233,6 +233,7 @@ function TradeskillInfo:OnEnable()
 		self.db.profile.TooltipAvailableTo = self.db.defaults.profile.TooltipAvailableTo
 	end
 	self:ScheduleTimer("OnSkillUpdate",1);
+	self:LoadUI()
 end
 
 function TradeskillInfo:OnDisable()
