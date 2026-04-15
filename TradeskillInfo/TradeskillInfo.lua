@@ -1778,6 +1778,7 @@ end
 ---- Processing of tooltips
 
 function TradeskillInfo:AddToTooltip(tooltip, id)
+	local lines_before = tooltip:NumLines()
 	self:AddUsedInToTooltip(tooltip, id)
 	self:AddUsableByToTooltip(tooltip, id)
 	self:AddSourceToTooltip(tooltip, id)
@@ -1787,7 +1788,9 @@ function TradeskillInfo:AddToTooltip(tooltip, id)
 	self:AddIdToTooltip(tooltip, id)
 	self:AddStackToTooltip(tooltip, id)
 	self:AddMarketValueProfitToTooltip(tooltip, id)
-	tooltip:Show();
+	if tooltip:NumLines() > lines_before then
+		tooltip:Show()
+	end
 end
 
 function TradeskillInfo:AddSourceToTooltip(tooltip, id)
